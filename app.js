@@ -19,6 +19,10 @@ class VoiceEmailApp {
         this.lastDictatedText = '';
         this.pendingCommand = null;
         
+        // Detect mobile device early
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.mobileAudioInitialized = false;
+        
         // Voice and accessibility settings
         this.settings = {
             fontSize: 16,
@@ -175,10 +179,12 @@ class VoiceEmailApp {
                 // Clean URL
                 window.history.replaceState({}, document.title, '/');
                 
-                // Start voice recognition
-                setTimeout(() => {
-                    this.startVoiceRecognition();
-                }, 500);
+                // Start voice recognition only on desktop
+                if (!this.isMobile) {
+                    setTimeout(() => {
+                        this.startVoiceRecognition();
+                    }, 500);
+                }
                 
                 setTimeout(() => {
                     this.hideLoadingOverlay();
@@ -200,9 +206,12 @@ class VoiceEmailApp {
             if (existingToken) {
                 // User is already logged in, go to inbox
                 this.showLoadingOverlay('Loading your emails...');
-                setTimeout(() => {
-                    this.startVoiceRecognition();
-                }, 500);
+                // Start voice recognition only on desktop
+                if (!this.isMobile) {
+                    setTimeout(() => {
+                        this.startVoiceRecognition();
+                    }, 500);
+                }
                 setTimeout(() => {
                     this.hideLoadingOverlay();
                     this.navigateToInbox();
@@ -234,10 +243,12 @@ class VoiceEmailApp {
                 }, 1000);
             }
             
-            // Start voice recognition if supported
-            setTimeout(() => {
-                this.startVoiceRecognition();
-            }, 2000);
+            // Start voice recognition if supported - only on desktop
+            if (!this.isMobile) {
+                setTimeout(() => {
+                    this.startVoiceRecognition();
+                }, 2000);
+            }
         } catch (error) {
             console.error('Initialization error:', error);
             this.updateVoiceStatus('error', 'Application initialization failed');
@@ -259,9 +270,14 @@ class VoiceEmailApp {
                 this.voiceSupported = false;
             }
 
+            // Detect mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            this.isMobile = isMobile;
+
             if (this.recognition) {
-                this.recognition.continuous = true;
-                this.recognition.interimResults = true;
+                // On mobile: disable continuous mode to prevent audio conflicts
+                this.recognition.continuous = !isMobile;
+                this.recognition.interimResults = !isMobile; // Also disable interim on mobile
                 this.recognition.lang = this.settings.voiceLanguage;
 
                 this.recognition.onstart = () => {
@@ -314,6 +330,14 @@ class VoiceEmailApp {
 
                 this.recognition.onend = () => {
                     this.isListening = false;
+                    
+                    // On mobile: don't auto-restart recognition (causes audio conflicts)
+                    if (this.isMobile) {
+                        this.updateVoiceStatus('inactive', 'Tap mic to speak');
+                        return;
+                    }
+                    
+                    // On desktop: auto-restart if enabled
                     if (this.voiceSupported && this.shouldRestartRecognition) {
                         setTimeout(() => {
                             try {
@@ -515,7 +539,7 @@ class VoiceEmailApp {
                 animation: pulse 2s infinite;
             ">
                 <i class="fas fa-volume-up"></i>
-                Tap here to enable voice
+                Tap to enable voice
             </div>
         `;
         
@@ -536,7 +560,7 @@ class VoiceEmailApp {
             setTimeout(() => prompt.remove(), 300);
             
             // Show success message
-            this.showToast('Voice enabled! You can now use voice features.', 'success');
+            this.showToast('Voice enabled! Tap the mic icon to give voice commands.', 'success');
         }
     }
 
