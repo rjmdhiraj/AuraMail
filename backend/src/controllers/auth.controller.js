@@ -46,7 +46,7 @@ export const handleGoogleCallback = async (req, res) => {
     // Get user information
     const userInfo = await getUserInfo(oauth2Client);
 
-    // Store tokens and user info in session
+    // Store tokens and user info in session (for backup/compatibility)
     req.session.tokens = tokens;
     req.session.userId = userInfo.id;
     req.session.userEmail = userInfo.email;
@@ -55,18 +55,23 @@ export const handleGoogleCallback = async (req, res) => {
     // Save session explicitly and wait for it
     await new Promise((resolve, reject) => {
       req.session.save((err) => {
-        if (err) reject(err);
+        if (err) {
+          logger.warn('Session save failed (Redis may not be available):', err.message);
+          resolve(); // Continue anyway - we'll use JWT
+        }
         else resolve();
       });
     });
 
     logger.info(`User authenticated: ${userInfo.email}`);
 
-    // Generate JWT for stateless authentication (optional)
+    // Generate JWT with Google tokens included for stateless auth
     const jwtToken = generateToken({
       id: userInfo.id,
       email: userInfo.email,
       name: userInfo.name,
+      picture: userInfo.picture,
+      tokens: tokens, // Include Google tokens in JWT for stateless operation
     });
     
     // Get session ID to pass to frontend

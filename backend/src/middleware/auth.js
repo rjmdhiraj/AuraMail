@@ -116,12 +116,22 @@ export const authenticate = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = decoded;
       
-      // Check if we have tokens in session for this user
+      // Check if JWT contains Google tokens (stateless mode)
+      if (decoded.tokens) {
+        // Use tokens from JWT directly
+        req.session.tokens = decoded.tokens;
+        req.session.userId = decoded.id;
+        req.session.userEmail = decoded.email;
+        req.session.userName = decoded.name;
+        return refreshGoogleToken(req, res, next);
+      }
+      
+      // Check if we have tokens in session for this user (legacy mode)
       if (req.session && req.session.userId === decoded.id && req.session.tokens) {
         // Use tokens from session
         return refreshGoogleToken(req, res, next);
       } else {
-        // No session tokens, user needs to re-authenticate
+        // No tokens available, user needs to re-authenticate
         return res.status(401).json({
           error: 'Unauthorized',
           message: 'Session expired. Please sign in again.',
