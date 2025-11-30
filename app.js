@@ -149,10 +149,16 @@ class VoiceEmailApp {
 
     init() {
         try {
+            // Apply theme FIRST to prevent flash of wrong colors on mobile
+            this.applyTheme();
+            
             // Initialize voice and event listeners first
             this.initializeVoiceAPIs();
             this.setupEventListeners();
             this.loadSettings();
+            
+            // Setup mobile voice initialization (requires user interaction on mobile)
+            this.setupMobileVoiceInit();
             
             // Check for OAuth callback
             const urlParams = new URLSearchParams(window.location.search);
@@ -397,6 +403,37 @@ class VoiceEmailApp {
                     this.updateVoiceStatus('error', 'Click to activate voice');
                 }
             }
+        }
+    }
+
+    // Mobile browsers require user interaction to enable audio APIs
+    setupMobileVoiceInit() {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            console.log('Mobile device detected - setting up touch activation for voice');
+            
+            // Add one-time touch handler to initialize audio on mobile
+            const initMobileAudio = () => {
+                // Initialize speech synthesis with a silent utterance
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance('');
+                    utterance.volume = 0;
+                    window.speechSynthesis.speak(utterance);
+                    window.speechSynthesis.cancel();
+                    console.log('Mobile speech synthesis initialized');
+                }
+                
+                // Reload voices after user interaction
+                this.updateVoiceSelection();
+                
+                // Remove the listener after first interaction
+                document.removeEventListener('touchstart', initMobileAudio);
+                document.removeEventListener('click', initMobileAudio);
+            };
+            
+            document.addEventListener('touchstart', initMobileAudio, { once: true });
+            document.addEventListener('click', initMobileAudio, { once: true });
         }
     }
 

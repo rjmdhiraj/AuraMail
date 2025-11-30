@@ -1753,6 +1753,49 @@ body {
   }
 }
 
+/* Mobile-specific color fixes */
+@media screen and (max-width: 768px) {
+  /* Ensure colors are applied on mobile */
+  :root,
+  [data-theme="light"],
+  [data-color-scheme="light"] {
+    color-scheme: light;
+  }
+  
+  [data-theme="dark"],
+  [data-color-scheme="dark"] {
+    color-scheme: dark;
+  }
+  
+  /* Force background color on mobile */
+  body {
+    background-color: var(--color-background) !important;
+    color: var(--color-text) !important;
+  }
+  
+  /* Fix for iOS Safari */
+  .glass-container,
+  .glass-card,
+  .card {
+    background-color: var(--color-surface) !important;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+}
+
+/* iOS-specific fixes */
+@supports (-webkit-touch-callout: none) {
+  body {
+    /* Fix for iOS viewport height */
+    min-height: -webkit-fill-available;
+  }
+  
+  /* Ensure proper color rendering on iOS */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 /* Animations */
 @keyframes pulse {
 
