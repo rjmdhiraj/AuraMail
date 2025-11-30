@@ -16,7 +16,9 @@ import logger from '../utils/logger.js';
  */
 const getAuthenticatedGmailClient = (req) => {
   const oauth2Client = createOAuth2Client();
-  oauth2Client.setCredentials(req.session.tokens);
+  // Use googleTokens (set by auth middleware) or fall back to session
+  const tokens = req.googleTokens || (req.session && req.session.tokens);
+  oauth2Client.setCredentials(tokens);
   return getGmailClient(oauth2Client);
 };
 
@@ -61,7 +63,7 @@ export const listEmails = async (req, res) => {
     const fullMessages = await Promise.all(emailPromises);
     const formattedEmails = formatEmailList(fullMessages);
 
-    logger.info(`Listed ${formattedEmails.length} emails for ${req.session.userEmail}`);
+    logger.info(`Listed ${formattedEmails.length} emails for ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -94,7 +96,7 @@ export const getEmail = async (req, res) => {
 
     const formattedEmail = formatEmailMessage(response.data);
 
-    logger.info(`Retrieved email ${id} for ${req.session.userEmail}`);
+    logger.info(`Retrieved email ${id} for ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -126,7 +128,7 @@ export const sendEmail = async (req, res) => {
       },
     });
 
-    logger.info(`Email sent by ${req.session.userEmail} to ${to}`);
+    logger.info(`Email sent by ${req.user?.email || req.session?.userEmail} to ${to}`);
 
     res.json({
       success: true,
@@ -155,7 +157,7 @@ export const deleteEmail = async (req, res) => {
       id,
     });
 
-    logger.info(`Email ${id} deleted by ${req.session.userEmail}`);
+    logger.info(`Email ${id} deleted by ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -188,7 +190,7 @@ export const modifyLabels = async (req, res) => {
       },
     });
 
-    logger.info(`Labels modified for email ${id} by ${req.session.userEmail}`);
+    logger.info(`Labels modified for email ${id} by ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -323,7 +325,7 @@ export const createDraft = async (req, res) => {
       },
     });
 
-    logger.info(`Draft created by ${req.session.userEmail}`);
+    logger.info(`Draft created by ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -360,7 +362,7 @@ export const updateDraft = async (req, res) => {
       },
     });
 
-    logger.info(`Draft ${id} updated by ${req.session.userEmail}`);
+    logger.info(`Draft ${id} updated by ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -389,7 +391,7 @@ export const deleteDraft = async (req, res) => {
       id,
     });
 
-    logger.info(`Draft ${id} deleted by ${req.session.userEmail}`);
+    logger.info(`Draft ${id} deleted by ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -419,7 +421,7 @@ export const sendDraft = async (req, res) => {
       },
     });
 
-    logger.info(`Draft ${id} sent by ${req.session.userEmail}`);
+    logger.info(`Draft ${id} sent by ${req.user?.email || req.session?.userEmail}`);
 
     res.json({
       success: true,
@@ -451,7 +453,7 @@ export const getAttachment = async (req, res) => {
 
     const attachmentData = Buffer.from(response.data.data, 'base64url');
 
-    logger.info(`Attachment ${attachmentId} downloaded from message ${messageId} by ${req.session.userEmail}`);
+    logger.info(`Attachment ${attachmentId} downloaded from message ${messageId} by ${req.user?.email || req.session?.userEmail}`);
 
     // Set headers for file download
     res.set({

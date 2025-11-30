@@ -60,7 +60,8 @@ export const verifyJWT = (req, res, next) => {
  */
 export const refreshGoogleToken = async (req, res, next) => {
   try {
-    const { tokens } = req.session;
+    // Get tokens from req.googleTokens (set by authenticate) or session
+    const tokens = req.googleTokens || (req.session && req.session.tokens);
     
     if (!tokens || !tokens.refresh_token) {
       return res.status(401).json({
@@ -75,6 +76,7 @@ export const refreshGoogleToken = async (req, res, next) => {
 
     if (expiryDate && now < expiryDate - 5 * 60 * 1000) {
       // Token still valid (with 5 minute buffer)
+      req.googleTokens = tokens; // Ensure tokens are available for controllers
       return next();
     }
 
@@ -84,16 +86,23 @@ export const refreshGoogleToken = async (req, res, next) => {
 
     const { credentials } = await oauth2Client.refreshAccessToken();
     
-    // Update session with new tokens
-    req.session.tokens = credentials;
+    // Update tokens for this request
+    req.googleTokens = credentials;
     
-    logger.info(`Access token refreshed for user: ${req.session.userId}`);
+    // Also update session if available
+    if (req.session) {
+      req.session.tokens = credentials;
+    }
+    
+    logger.info(`Access token refreshed for user: ${req.user?.email || req.session?.userId}`);
     next();
   } catch (error) {
     logger.error('Token refresh error:', error);
     
-    // Clear invalid session
-    req.session.destroy();
+    // Clear invalid session if it exists
+    if (req.session && typeof req.session.destroy === 'function') {
+      req.session.destroy();
+    }
     
     return res.status(401).json({
       error: 'Authentication Failed',
@@ -118,17 +127,15 @@ export const authenticate = async (req, res, next) => {
       
       // Check if JWT contains Google tokens (stateless mode)
       if (decoded.tokens) {
-        // Use tokens from JWT directly
-        req.session.tokens = decoded.tokens;
-        req.session.userId = decoded.id;
-        req.session.userEmail = decoded.email;
-        req.session.userName = decoded.name;
+        // Use tokens from JWT directly - store in req.googleTokens
+        req.googleTokens = decoded.tokens;
         return refreshGoogleToken(req, res, next);
       }
       
       // Check if we have tokens in session for this user (legacy mode)
       if (req.session && req.session.userId === decoded.id && req.session.tokens) {
         // Use tokens from session
+        req.googleTokens = req.session.tokens;
         return refreshGoogleToken(req, res, next);
       } else {
         // No tokens available, user needs to re-authenticate
@@ -161,6 +168,9 @@ export const authenticate = async (req, res, next) => {
       message: 'Invalid authentication tokens',
     });
   }
+  
+  // Set googleTokens from session
+  req.googleTokens = req.session.tokens;
   
   // Refresh tokens if needed
   return refreshGoogleToken(req, res, next);
