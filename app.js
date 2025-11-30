@@ -409,31 +409,134 @@ class VoiceEmailApp {
     // Mobile browsers require user interaction to enable audio APIs
     setupMobileVoiceInit() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.isMobile = isMobile;
+        this.mobileAudioInitialized = false;
         
         if (isMobile) {
             console.log('Mobile device detected - setting up touch activation for voice');
             
-            // Add one-time touch handler to initialize audio on mobile
-            const initMobileAudio = () => {
-                // Initialize speech synthesis with a silent utterance
+            // Show a prompt to enable audio on mobile
+            this.showMobileAudioPrompt();
+            
+            // Add touch handler to initialize audio on mobile
+            const initMobileAudio = (e) => {
+                if (this.mobileAudioInitialized) return;
+                
+                console.log('Initializing mobile audio...');
+                
+                // Initialize speech synthesis with a real utterance (required on iOS)
                 if ('speechSynthesis' in window) {
-                    const utterance = new SpeechSynthesisUtterance('');
-                    utterance.volume = 0;
-                    window.speechSynthesis.speak(utterance);
+                    // Cancel any pending speech
                     window.speechSynthesis.cancel();
-                    console.log('Mobile speech synthesis initialized');
+                    
+                    // iOS requires the voices to be loaded after user interaction
+                    const voices = window.speechSynthesis.getVoices();
+                    console.log('Available voices:', voices.length);
+                    
+                    // Speak a brief sound to unlock audio
+                    const utterance = new SpeechSynthesisUtterance(' ');
+                    utterance.volume = 0.1;
+                    utterance.rate = 2;
+                    
+                    // Use first available voice
+                    if (voices.length > 0) {
+                        utterance.voice = voices[0];
+                    }
+                    
+                    utterance.onend = () => {
+                        console.log('Mobile speech synthesis unlocked');
+                        this.mobileAudioInitialized = true;
+                        this.hideMobileAudioPrompt();
+                        this.updateVoiceSelection();
+                    };
+                    
+                    utterance.onerror = (err) => {
+                        console.error('Mobile audio init error:', err);
+                        // Try again
+                        this.mobileAudioInitialized = false;
+                    };
+                    
+                    window.speechSynthesis.speak(utterance);
                 }
                 
-                // Reload voices after user interaction
-                this.updateVoiceSelection();
-                
-                // Remove the listener after first interaction
-                document.removeEventListener('touchstart', initMobileAudio);
-                document.removeEventListener('click', initMobileAudio);
+                // Also try to unlock AudioContext (for future use)
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        const audioCtx = new AudioContext();
+                        audioCtx.resume().then(() => {
+                            console.log('AudioContext unlocked');
+                        });
+                    }
+                } catch (e) {
+                    console.log('AudioContext not available');
+                }
             };
             
-            document.addEventListener('touchstart', initMobileAudio, { once: true });
-            document.addEventListener('click', initMobileAudio, { once: true });
+            // Multiple event listeners to catch user interaction
+            document.addEventListener('touchstart', initMobileAudio, { passive: true });
+            document.addEventListener('touchend', initMobileAudio, { passive: true });
+            document.addEventListener('click', initMobileAudio, { passive: true });
+            
+            // Also initialize on voice status click
+            const voiceStatus = document.getElementById('voice-status');
+            if (voiceStatus) {
+                voiceStatus.addEventListener('click', initMobileAudio);
+                voiceStatus.addEventListener('touchstart', initMobileAudio, { passive: true });
+            }
+        }
+    }
+    
+    showMobileAudioPrompt() {
+        // Add a floating button for mobile users to tap
+        const existingPrompt = document.getElementById('mobile-audio-prompt');
+        if (existingPrompt) return;
+        
+        const prompt = document.createElement('div');
+        prompt.id = 'mobile-audio-prompt';
+        prompt.innerHTML = `
+            <div style="
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: var(--color-primary, #21808d);
+                color: white;
+                padding: 15px 25px;
+                border-radius: 30px;
+                font-size: 16px;
+                font-weight: 600;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                z-index: 10000;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                animation: pulse 2s infinite;
+            ">
+                <i class="fas fa-volume-up"></i>
+                Tap here to enable voice
+            </div>
+        `;
+        
+        prompt.onclick = () => {
+            // Trigger the audio init
+            document.dispatchEvent(new Event('touchstart'));
+        };
+        
+        document.body.appendChild(prompt);
+    }
+    
+    hideMobileAudioPrompt() {
+        const prompt = document.getElementById('mobile-audio-prompt');
+        if (prompt) {
+            prompt.style.transition = 'opacity 0.3s, transform 0.3s';
+            prompt.style.opacity = '0';
+            prompt.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(() => prompt.remove(), 300);
+            
+            // Show success message
+            this.showToast('Voice enabled! You can now use voice features.', 'success');
         }
     }
 
@@ -518,6 +621,13 @@ class VoiceEmailApp {
             console.log('Text to speak:', text);
             return;
         }
+        
+        // On mobile, check if audio is initialized
+        if (this.isMobile && !this.mobileAudioInitialized) {
+            console.log('Mobile audio not initialized yet. Text:', text);
+            this.showMobileAudioPrompt();
+            return;
+        }
 
         try {
             // Stop recognition while speaking to avoid conflicts
@@ -527,24 +637,34 @@ class VoiceEmailApp {
                 this.isListening = false;
             }
 
-            // Only cancel if explicitly requested AND there's something speaking
-            if (interrupt && this.synthesis.speaking) {
+            // Cancel any ongoing speech first (iOS fix)
+            if (this.synthesis.speaking || this.synthesis.pending) {
                 this.synthesis.cancel();
-                // Wait a bit for cancellation to complete
-                setTimeout(() => this.speakWithBrowser(text, false), 100);
-                return;
             }
-
+            
+            // Small delay after cancel (iOS fix)
+            setTimeout(() => this._doSpeak(text), 100);
+            
+        } catch (error) {
+            console.error('Speech synthesis error:', error);
+            this.shouldRestartRecognition = true;
+        }
+    }
+    
+    _doSpeak(text) {
+        try {
             // Ensure voices are loaded
-            const voices = this.synthesis.getVoices();
+            let voices = this.synthesis.getVoices();
             if (voices.length === 0) {
                 console.warn('No voices loaded yet, waiting...');
-                setTimeout(() => this.speakWithBrowser(text, interrupt), 100);
+                // Try to trigger voice loading
+                window.speechSynthesis.getVoices();
+                setTimeout(() => this._doSpeak(text), 200);
                 return;
             }
 
             // Split long text into chunks (Web Speech API has issues with long text)
-            const maxChunkLength = 200; // Characters per chunk
+            const maxChunkLength = 150; // Shorter chunks for mobile
             const chunks = this.splitTextIntoChunks(text, maxChunkLength);
             console.log('Speaking text in', chunks.length, 'chunks');
             
@@ -566,16 +686,23 @@ class VoiceEmailApp {
                 }
                 
                 const chunk = chunks[currentChunk];
-                console.log('Speaking chunk', currentChunk + 1, 'of', chunks.length, ':', chunk.substring(0, 50) + '...');
+                console.log('Speaking chunk', currentChunk + 1, 'of', chunks.length);
                 
                 const utterance = new SpeechSynthesisUtterance(chunk);
+                
+                // Select appropriate voice
+                voices = this.synthesis.getVoices();
                 if (this.currentVoice) {
                     utterance.voice = this.currentVoice;
                 } else if (voices.length > 0) {
-                    utterance.voice = voices[0];
+                    // Prefer English voice on mobile
+                    const englishVoice = voices.find(v => v.lang.startsWith('en'));
+                    utterance.voice = englishVoice || voices[0];
                 }
+                
                 utterance.rate = this.settings.speechRate;
                 utterance.volume = this.settings.speechVolume;
+                utterance.pitch = 1;
 
                 utterance.onstart = () => {
                     if (currentChunk === 0) {
@@ -586,17 +713,29 @@ class VoiceEmailApp {
 
                 utterance.onend = () => {
                     currentChunk++;
-                    speakNextChunk();
+                    // Small delay between chunks for mobile
+                    setTimeout(speakNextChunk, 50);
                 };
 
                 utterance.onerror = (event) => {
                     console.error('Speech synthesis error on chunk', currentChunk, ':', event.error);
-                    // Try next chunk anyway
-                    currentChunk++;
-                    speakNextChunk();
+                    // On mobile, "interrupted" error is common, try next chunk
+                    if (event.error === 'interrupted' || event.error === 'canceled') {
+                        currentChunk++;
+                        setTimeout(speakNextChunk, 100);
+                    } else {
+                        // For other errors, restart
+                        this.isReading = false;
+                        this.shouldRestartRecognition = true;
+                    }
                 };
 
                 this.synthesis.speak(utterance);
+                
+                // iOS Safari fix: keep synthesis alive
+                if (this.isMobile) {
+                    this._keepSynthesisAlive();
+                }
             };
             
             this.lastSpokenText = text;
@@ -606,6 +745,26 @@ class VoiceEmailApp {
             console.error('Speech synthesis error:', error);
             this.shouldRestartRecognition = true;
         }
+    }
+    
+    // iOS Safari workaround - speech synthesis stops if page is not active
+    _keepSynthesisAlive() {
+        if (!this.synthesis.speaking) return;
+        
+        // Ping the synthesis to keep it alive
+        const interval = setInterval(() => {
+            if (!this.synthesis.speaking) {
+                clearInterval(interval);
+                return;
+            }
+            // Resume if paused (iOS issue)
+            if (this.synthesis.paused) {
+                this.synthesis.resume();
+            }
+        }, 250);
+        
+        // Clear after 30 seconds max
+        setTimeout(() => clearInterval(interval), 30000);
     }
     
     splitTextIntoChunks(text, maxLength) {
