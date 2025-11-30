@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Frontend (served via nginx or development server)
+  frontend:
+    build:
+      context: ./
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+      - ai-backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+      - REACT_APP_WS_URL=ws://localhost:3001/ws
+    networks:
+      - voice-email-network
+
+  # Node.js Backend
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+      - ai-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - FRONTEND_URL=http://localhost:3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHON_AI_SERVICE_URL=http://ai-backend:5000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./backend/logs:/app/logs
+    networks:
+      - voice-email-network
+    restart: unless-stopped
+
+  # Python AI Backend
+  ai-backend:
+    build:
+      context: ./python-ai-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PORT=5000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - WHISPER_MODEL=base
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/google-credentials.json
+    volumes:
+      - ./python-ai-backend/logs:/app/logs
+      - ./python-ai-backend/models_cache:/app/models_cache
+      - ./credentials:/app/credentials:ro
+    networks:
+      - voice-email-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+
+  # Redis for session storage and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voice-email-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+networks:
+  voice-email-network:
+    driver: bridge
+
+volumes:
+  redis-data:

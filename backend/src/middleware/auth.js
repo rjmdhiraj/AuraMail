@@ -1,0 +1,164 @@
+/**
+ * Authentication Middleware
+ * Verifies user session and Google OAuth tokens
+ */
+
+import jwt from 'jsonwebtoken';
+import { createOAuth2Client } from '../config/google.js';
+import logger from '../utils/logger.js';
+
+/**
+ * Verify user is authenticated via session
+ */
+export const requireAuth = (req, res, next) => {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'You must be logged in to access this resource',
+    });
+  }
+
+  // Check if tokens exist
+  if (!req.session.tokens) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid authentication tokens',
+    });
+  }
+
+  next();
+};
+
+/**
+ * Verify JWT token (alternative to session)
+ */
+export const verifyJWT = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'No authentication token provided',
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    logger.error('JWT verification error:', error);
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid or expired token',
+    });
+  }
+};
+
+/**
+ * Refresh expired Google access token
+ */
+export const refreshGoogleToken = async (req, res, next) => {
+  try {
+    const { tokens } = req.session;
+    
+    if (!tokens || !tokens.refresh_token) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'No refresh token available. Please log in again.',
+      });
+    }
+
+    // Check if access token is expired
+    const expiryDate = tokens.expiry_date;
+    const now = Date.now();
+
+    if (expiryDate && now < expiryDate - 5 * 60 * 1000) {
+      // Token still valid (with 5 minute buffer)
+      return next();
+    }
+
+    // Refresh the token
+    const oauth2Client = createOAuth2Client();
+    oauth2Client.setCredentials(tokens);
+
+    const { credentials } = await oauth2Client.refreshAccessToken();
+    
+    // Update session with new tokens
+    req.session.tokens = credentials;
+    
+    logger.info(`Access token refreshed for user: ${req.session.userId}`);
+    next();
+  } catch (error) {
+    logger.error('Token refresh error:', error);
+    
+    // Clear invalid session
+    req.session.destroy();
+    
+    return res.status(401).json({
+      error: 'Authentication Failed',
+      message: 'Failed to refresh access token. Please log in again.',
+    });
+  }
+};
+
+/**
+ * Combined authentication middleware
+ * Checks JWT token or session and refreshes tokens if needed
+ */
+export const authenticate = async (req, res, next) => {
+  // Try JWT authentication first
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+      
+      // Check if we have tokens in session for this user
+      if (req.session && req.session.userId === decoded.id && req.session.tokens) {
+        // Use tokens from session
+        return refreshGoogleToken(req, res, next);
+      } else {
+        // No session tokens, user needs to re-authenticate
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Session expired. Please sign in again.',
+        });
+      }
+    } catch (error) {
+      logger.error('JWT verification error:', error);
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Invalid or expired token',
+      });
+    }
+  }
+  
+  // Fall back to session-based auth
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'You must be logged in to access this resource',
+    });
+  }
+
+  // Check if tokens exist
+  if (!req.session.tokens) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid authentication tokens',
+    });
+  }
+  
+  // Refresh tokens if needed
+  return refreshGoogleToken(req, res, next);
+};
+
+export default {
+  requireAuth,
+  verifyJWT,
+  refreshGoogleToken,
+  authenticate,
+};

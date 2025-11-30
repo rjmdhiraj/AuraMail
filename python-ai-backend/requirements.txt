@@ -1,0 +1,23 @@
+# Core Framework
+flask
+flask-cors
+python-dotenv
+
+# AI/ML Libraries
+transformers
+torch
+openai-whisper
+
+# Audio Processing
+soundfile
+
+# Text-to-Speech
+gtts
+
+# Utilities
+numpy
+scipy
+
+# Testing (optional)
+pytest
+pytest-flask

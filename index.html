@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <title>Voice-Enabled Email System</title> -->
+     <title>AuraMails</title>
+    <meta name="description" content="Accessible voice-controlled email system for visually impaired users">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Skip Navigation Link -->
+    <a href="#main-content" class="skip-nav" aria-label="Skip to main content">Skip to main content</a>
+
+    <!-- Voice Status Indicator -->
+    <div id="voice-status" class="voice-status" role="status" aria-live="polite" aria-atomic="true">
+        <div class="status-icon">
+            <i class="fas fa-microphone-slash" id="status-icon" aria-hidden="true"></i>
+        </div>
+        <span id="status-text">Voice commands ready</span>
+    </div>
+
+    <!-- Screen Reader Announcements -->
+    <div id="sr-announcements" class="visually-hidden" role="status" aria-live="assertive" aria-atomic="true"></div>
+
+    <!-- Login/Onboarding Screen -->
+    <div id="login-screen" class="screen active" role="main" aria-labelledby="login-title">
+        <div class="glass-container login-container">
+            <div class="text-center mb-4">
+                <h1 id="login-title" class="display-4 mb-3">
+                    <i class="fas fa-envelope-open-text me-3" aria-hidden="true"></i>
+                    AuraMail
+                </h1>
+                <p class="lead" id="welcome-message">Welcome to your accessible email experience</p>
+            </div>
+
+            <div class="card glass-card">
+                <div class="card-body text-center p-4">
+                    <h2 class="h4 mb-3">Get Started</h2>
+                    <p class="mb-4">Experience hands-free email management with voice commands</p>
+
+                    <button id="oauth-btn" class="btn btn--primary btn-lg mb-3" aria-describedby="oauth-desc"
+                        type="button" aria-label="Sign in with Google OAuth">
+                        <i class="fab fa-google me-2" aria-hidden="true"></i>
+                        Sign in with Google
+                    </button>
+                    <p id="oauth-desc" class="small text-muted">Secure authentication with Google OAuth. You'll be
+                        redirected to Google's login page.</p>
+
+                    <div class="mt-4">
+                        <button id="tutorial-btn" class="btn btn--outline" type="button"
+                            aria-describedby="tutorial-desc">
+                            <i class="fas fa-graduation-cap me-2" aria-hidden="true"></i>
+                            Voice Tutorial
+                        </button>
+                        <p id="tutorial-desc" class="small text-muted mt-2">Learn voice commands (5 minutes)</p>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-4">
+                <!-- <p class="small text-muted" style="opacity: 0.7;">
+                    <i class="fas fa-code me-1" aria-hidden="true"></i>
+                    Developed By: <strong>Rajat Malik</strong>
+                </p> -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard/Inbox -->
+    <div id="dashboard-screen" class="screen" role="main" aria-labelledby="dashboard-title">
+        <nav class="navbar glass-navbar" role="navigation" aria-label="Main navigation">
+            <div class="container-fluid">
+                <h1 id="dashboard-title" class="navbar-brand">
+                    <i class="fas fa-inbox me-2" aria-hidden="true"></i>
+                    AuraMail
+                </h1>
+
+                <div class="navbar-nav flex-row gap-2">
+                    <button id="compose-btn" class="btn btn--primary" type="button" aria-describedby="compose-desc">
+                        <i class="fas fa-plus me-2" aria-hidden="true"></i>
+                        Compose
+                    </button>
+                    <button id="settings-btn" class="btn btn--outline" type="button" aria-label="Open settings">
+                        <i class="fas fa-cog" aria-hidden="true"></i>
+                    </button>
+                    <button id="theme-toggle" class="btn btn--outline" type="button" aria-label="Toggle dark mode">
+                        <i class="fas fa-moon" id="theme-icon" aria-hidden="true"></i>
+                        <span class="visually-hidden">Toggle dark mode</span>
+                    </button>
+                    <button id="logout-btn" class="btn btn--outline" type="button" aria-label="Logout">
+                        <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid mt-4">
+            <div class="row">
+                <!-- Sidebar -->
+                <div class="col-md-3">
+                    <div class="card glass-card">
+                        <div class="card-body">
+                            <h2 class="h5 mb-3">Email Folders</h2>
+                            <nav role="navigation" aria-label="Email folders">
+                                <ul class="nav flex-column folder-nav" role="menubar">
+                                    <li class="nav-item" role="none">
+                                        <button class="nav-link folder-link active" data-folder="inbox" role="menuitem"
+                                            aria-pressed="true">
+                                            <i class="fas fa-inbox me-2" aria-hidden="true"></i>
+                                            Inbox <span class="badge" id="inbox-count">3</span>
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="none">
+                                        <button class="nav-link folder-link" data-folder="sent" role="menuitem"
+                                            aria-pressed="false">
+                                            <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>
+                                            Sent
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="none">
+                                        <button class="nav-link folder-link" data-folder="drafts" role="menuitem"
+                                            aria-pressed="false">
+                                            <i class="fas fa-edit me-2" aria-hidden="true"></i>
+                                            Drafts
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="none">
+                                        <button class="nav-link folder-link" data-folder="spam" role="menuitem"
+                                            aria-pressed="false">
+                                            <i class="fas fa-exclamation-triangle me-2" aria-hidden="true"></i>
+                                            Spam <span class="badge badge-warning" id="spam-count">1</span>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Email List -->
+                <div class="col-md-9">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h2 class="h5 mb-0" id="current-folder-title">Inbox</h2>
+                                <div class="d-flex gap-2">
+                                    <button id="search-btn" class="btn btn--outline btn-sm" type="button"
+                                        aria-label="Search emails">
+                                        <i class="fas fa-search" aria-hidden="true"></i>
+                                    </button>
+                                    <button id="refresh-btn" class="btn btn--outline btn-sm" type="button"
+                                        aria-label="Refresh emails">
+                                        <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="email-list" class="email-list" role="list" aria-label="Email list">
+                                <!-- Email items will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="container-fluid mt-4 pb-3">
+            <div class="text-center">
+                <!-- <p class="small text-muted mb-0" style="opacity: 0.7;">
+                    <i class="fas fa-code me-1" aria-hidden="true"></i>
+                    Developer: <strong>Rajat Malik</strong>
+                </p> -->
+            </div>
+        </footer>
+    </div>
+
+    <!-- Compose Email Screen -->
+    <div id="compose-screen" class="screen" role="main" aria-labelledby="compose-title">
+        <div class="container-fluid mt-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h1 id="compose-title" class="h4 mb-0">Compose Email</h1>
+                            <button id="back-to-inbox" class="btn btn--outline" type="button"
+                                aria-label="Back to inbox">
+                                <i class="fas fa-arrow-left me-2" aria-hidden="true"></i>
+                                Back
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <form id="compose-form" novalidate>
+                                <div class="mb-3">
+                                    <label for="compose-to" class="form-label">To:</label>
+                                    <input type="email" id="compose-to" class="form-control"
+                                        placeholder="Enter recipient email address" aria-describedby="to-help" required>
+                                    <div id="to-help" class="form-text">Say "dictate recipient" to use voice input</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="compose-subject" class="form-label">Subject:</label>
+                                    <input type="text" id="compose-subject" class="form-control"
+                                        placeholder="Enter email subject" aria-describedby="subject-help">
+                                    <div id="subject-help" class="form-text">Say "dictate subject" to use voice input
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="compose-body" class="form-label">Message:</label>
+                                    <textarea id="compose-body" class="form-control" rows="12"
+                                        placeholder="Type your message or use voice dictation"
+                                        aria-describedby="body-help"></textarea>
+                                    <div id="body-help" class="form-text">Say "dictate message" or "start dictating" to
+                                        compose with voice</div>
+                                </div>
+
+                                <div id="voice-recording" class="voice-recording mb-4" style="display: none;">
+                                    <div class="recording-indicator">
+                                        <div class="recording-pulse"></div>
+                                        <span>Listening... Say "stop dictating" when done</span>
+                                    </div>
+                                    <div class="voice-waveform">
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                        <div class="waveform-bar"></div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button type="submit" id="send-email" class="btn btn--primary">
+                                        <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>
+                                        Send Email
+                                    </button>
+                                    <button type="button" id="dictate-btn" class="btn btn--outline">
+                                        <i class="fas fa-microphone me-2" aria-hidden="true"></i>
+                                        Start Dictating
+                                    </button>
+                                    <button type="button" id="save-draft" class="btn btn--secondary">
+                                        <i class="fas fa-save me-2" aria-hidden="true"></i>
+                                        Save Draft
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Reader Screen -->
+    <div id="reader-screen" class="screen" role="main" aria-labelledby="reader-title">
+        <div class="container-fluid mt-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <button id="back-from-reader" class="btn btn--outline" type="button"
+                                aria-label="Back to email list">
+                                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            </button>
+                            <div class="email-actions d-flex gap-2">
+                                <button id="reply-btn" class="btn btn--outline" type="button">
+                                    <i class="fas fa-reply me-1" aria-hidden="true"></i>
+                                    Reply
+                                </button>
+                                <button id="forward-btn" class="btn btn--outline" type="button">
+                                    <i class="fas fa-share me-1" aria-hidden="true"></i>
+                                    Forward
+                                </button>
+                                <button id="delete-btn" class="btn btn--outline text-danger" type="button">
+                                    <i class="fas fa-trash me-1" aria-hidden="true"></i>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="email-header" class="email-header mb-4">
+                                <h1 id="reader-title" class="email-subject mb-2"></h1>
+                                <div class="email-meta">
+                                    <p class="mb-1">
+                                        <strong>From:</strong> <span id="email-from"></span>
+                                    </p>
+                                    <p class="mb-1">
+                                        <strong>Date:</strong> <span id="email-date"></span>
+                                    </p>
+                                    <div id="email-attachments" style="display: none;">
+                                        <strong>Attachments:</strong>
+                                        <span class="badge bg-info">📎 Attachment</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="reading-controls" class="reading-controls mb-3">
+                                <button id="read-email-btn" class="btn btn--primary" type="button">
+                                    <i class="fas fa-play me-2" aria-hidden="true"></i>
+                                    Read Email Aloud
+                                </button>
+                                <button id="pause-reading-btn" class="btn btn--outline" type="button"
+                                    style="display: none;">
+                                    <i class="fas fa-pause me-2" aria-hidden="true"></i>
+                                    Pause Reading
+                                </button>
+                                <button id="stop-reading-btn" class="btn btn--outline" type="button"
+                                    style="display: none;">
+                                    <i class="fas fa-stop me-2" aria-hidden="true"></i>
+                                    Stop Reading
+                                </button>
+                            </div>
+
+                            <div id="email-body" class="email-body">
+                                <!-- Email content will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Screen -->
+    <div id="settings-screen" class="screen" role="main" aria-labelledby="settings-title">
+        <div class="container-fluid mt-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h1 id="settings-title" class="h4 mb-0">Accessibility Settings</h1>
+                            <button id="back-from-settings" class="btn btn--outline" type="button"
+                                aria-label="Back to dashboard">
+                                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <form id="settings-form">
+                                <fieldset class="mb-4">
+                                    <legend class="h6">Text & Display</legend>
+
+                                    <div class="mb-3">
+                                        <label for="font-size" class="form-label">Font Size:</label>
+                                        <input type="range" id="font-size" class="form-range" min="14" max="24"
+                                            value="16" aria-describedby="font-size-value">
+                                        <div id="font-size-value" class="form-text">16px</div>
+                                    </div>
+
+                                    <div class="mb-3 form-check form-switch">
+                                        <input type="checkbox" id="high-contrast" class="form-check-input"
+                                            role="switch">
+                                        <label for="high-contrast" class="form-check-label">High Contrast Mode</label>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="mb-4">
+                                    <legend class="h6">Voice Settings</legend>
+
+                                    <div class="mb-3">
+                                        <label for="speech-rate" class="form-label">Speech Rate:</label>
+                                        <input type="range" id="speech-rate" class="form-range" min="0.5" max="2.0"
+                                            step="0.1" value="1.0" aria-describedby="speech-rate-value">
+                                        <div id="speech-rate-value" class="form-text">1.0x (Normal)</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="speech-volume" class="form-label">Speech Volume:</label>
+                                        <input type="range" id="speech-volume" class="form-range" min="0.1" max="1.0"
+                                            step="0.1" value="0.8" aria-describedby="speech-volume-value">
+                                        <div id="speech-volume-value" class="form-text">80%</div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="voice-language" class="form-label">Voice Language:</label>
+                                        <select id="voice-language" class="form-control">
+                                            <option value="en-US">English (US)</option>
+                                            <option value="en-GB">English (UK)</option>
+                                            <option value="es-ES">Spanish</option>
+                                            <option value="fr-FR">French</option>
+                                        </select>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="mb-4">
+                                    <legend class="h6">Behavior Settings</legend>
+
+                                    <div class="mb-3 form-check form-switch">
+                                        <input type="checkbox" id="auto-read" class="form-check-input" role="switch"
+                                            checked>
+                                        <label for="auto-read" class="form-check-label">Auto-read emails when
+                                            opened</label>
+                                    </div>
+
+                                    <div class="mb-3 form-check form-switch">
+                                        <input type="checkbox" id="confirm-actions" class="form-check-input"
+                                            role="switch" checked>
+                                        <label for="confirm-actions" class="form-check-label">Voice confirmation for
+                                            actions</label>
+                                    </div>
+                                </fieldset>
+
+                                <button type="button" id="test-voice" class="btn btn--primary me-2">
+                                    <i class="fas fa-volume-up me-2" aria-hidden="true"></i>
+                                    Test Voice Settings
+                                </button>
+                                <button type="button" id="reset-settings" class="btn btn--outline">
+                                    <i class="fas fa-undo me-2" aria-hidden="true"></i>
+                                    Reset to Defaults
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help/Tutorial Modal -->
+    <div id="help-modal" class="modal" tabindex="-1" role="dialog" aria-labelledby="help-title" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content glass-modal">
+                <div class="modal-header">
+                    <h2 id="help-title" class="modal-title">Voice Commands Guide</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close help dialog"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h3 class="h5">Navigation Commands</h3>
+                            <ul class="command-list">
+                                <li><strong>"read inbox"</strong> - Go to inbox</li>
+                                <li><strong>"compose email"</strong> - Start new email</li>
+                                <li><strong>"show settings"</strong> - Open settings</li>
+                                <li><strong>"go back"</strong> - Return to previous screen</li>
+                                <li><strong>"help"</strong> - Show this guide</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h3 class="h5">Email Commands</h3>
+                            <ul class="command-list">
+                                <li><strong>"read email"</strong> - Read current email aloud</li>
+                                <li><strong>"reply"</strong> - Reply to email</li>
+                                <li><strong>"forward"</strong> - Forward email</li>
+                                <li><strong>"delete"</strong> - Delete email</li>
+                                <li><strong>"mark as spam"</strong> - Mark as spam</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h3 class="h5">Composition Commands</h3>
+                            <ul class="command-list">
+                                <li><strong>"dictate recipient"</strong> - Voice input for recipient</li>
+                                <li><strong>"dictate subject"</strong> - Voice input for subject</li>
+                                <li><strong>"dictate message"</strong> - Voice input for message</li>
+                                <li><strong>"start dictating"</strong> - Begin voice input</li>
+                                <li><strong>"stop dictating"</strong> - End voice input</li>
+                                <li><strong>"send email"</strong> - Confirm and send</li>
+                                <li><strong>"confirm send"</strong> - Confirm sending</li>
+                                <li><strong>"save draft"</strong> - Save as draft with confirmation</li>
+                                <li><strong>"confirm save"</strong> - Confirm saving draft</li>
+                                <li><strong>"cancel"</strong> - Cancel action</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h3 class="h5">System Commands</h3>
+                            <ul class="command-list">
+                                <li><strong>"repeat"</strong> - Repeat last announcement</li>
+                                <li><strong>"louder"</strong> - Increase volume</li>
+                                <li><strong>"quieter"</strong> - Decrease volume</li>
+                                <li><strong>"high contrast"</strong> - Toggle contrast mode</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="start-voice-tour" class="btn btn--primary">
+                        <i class="fas fa-microphone me-2" aria-hidden="true"></i>
+                        Start Voice Tour
+                    </button>
+                    <button type="button" class="btn btn--outline" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" role="region"
+        aria-live="polite">
+        <!-- Toasts will be added dynamically -->
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;" role="status" aria-live="polite">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p id="loading-text" class="mt-3">Processing...</p>
+        </div>
+    </div>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
