@@ -1,18 +1,6 @@
 {
   "version": 2,
-  "name": "voice-email-frontend",
-  "builds": [
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
+  "name": "auramail-frontend",
   "headers": [
     {
       "source": "/(.*)",

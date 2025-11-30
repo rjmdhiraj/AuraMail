@@ -3,7 +3,7 @@
 // API Configuration - Change this URL for production deployment
 const API_BASE_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:3001' 
-    : 'https://your-backend-url.onrender.com'; // UPDATE THIS FOR PRODUCTION
+    : 'https://auramail-backend.onrender.com'; // UPDATE: Replace with your actual Render URL
 
 class VoiceEmailApp {
     constructor() {
